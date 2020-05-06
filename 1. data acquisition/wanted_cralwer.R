@@ -1,4 +1,4 @@
-####load_library####
+ ####load_library####
 library(rvest)
 library(dplyr)
 library(stringr)
@@ -94,7 +94,7 @@ for(i in 1:length(search_df$keyword)){
                           end_date = end_date, location = location,
                           introduction = introduction, description = description,
                           qualification = qualification, preferential = preferential,
-                          welfare = welfare)
+                          welfare = welfare) #url 끼는거 까먹었다... 추가 필요함 
     temp <- NULL #initialize temp
     all_df <- rbind(all_df, temp_df)
     
