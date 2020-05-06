@@ -97,5 +97,8 @@ for(i in 1:length(all_df$url)){
   if(i %% 100 == 0){message(round(i / length(all_df$url), 2)* 100, "% is done.")}
 }
 
+contents_df <- subset(contents_df, select = -url)
+
+all_df <- cbind(all_df, contents_df)
 
 write_xlsx(all_df, "indeed_crawling_result.xlsx")
