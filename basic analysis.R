@@ -52,6 +52,7 @@ all_df$qualification <- str_replace_all(all_df$qualification, "↑", "이상")
 all_df$education_level <- ""
 all_df$career_level <- ""
 
+# education level
 for(i in 1:nrow(all_df)){
   if(nchar(all_df$qualification[i]) == 1){all_df$education_level[i] <- ""}
   else if(grepl("학력무관", all_df$qualification[i])){all_df$education_level[i] <- "학력무관"}
@@ -79,6 +80,7 @@ all_df$avg_salary <- ""
 all_df$min_salary <- ""
 all_df$max_salary <- ""
 
+# salary pre-processing
 for(i in 1:nrow(all_df)){
   if(grepl("연봉",all_df$type[i])){
     temp_salary <- all_df$type[i]
@@ -100,6 +102,7 @@ all_df$max_salary[is.na(all_df$max_salary)] <- 0
 all_df$min_salary[is.na(all_df$min_salary)] <- 0
 all_df$avg_salary <- (all_df$min_salary + all_df$max_salary) / 2 
 
+# job type pre-processing
 # 정규직 or 계약직
 all_df$job_type <- ""
 for(i in 1:nrow(all_df)){
@@ -133,6 +136,34 @@ ggplot(freq_co, aes(x = company, y = freq)) +
   theme_classic() +
   theme(plot.title = element_text(hjust = 0.5, color = "#666666"))
 
+#job_type
+table(sub_df$job_type)
+
+table(sub_df$education_level)
+
+# career_level plot
+career_level <- table(sub_df$career_level) %>% as.data.frame()
+career_level <- career_level[career_level$Var1 != "",]
+career_level$Var1 <- factor(career_level$Var1, levels = rev(c("8 ~ 10년",  "4 ~ 7년", "1 ~ 3년", "초대졸" , "고졸",  "학력무관")))
+
+ggplot(career_level, aes(x = Var1, y = Freq)) + 
+  geom_bar(stat = "identity", aes(fill = Var1)) +
+  #geom_bar(stat = "identity", fill = Var1, colour="black") + 
+  labs(x = NULL, y = NULL, fill = NULL, title = "career_level Line Chart")  +
+  theme_classic() +
+  theme(plot.title = element_text(hjust = 0.5, color = "#666666"))
+
+# education_level plot
+education_level <- table(sub_df$education_level) %>% as.data.frame()
+education_level <- education_level[education_level$Var1 != "",]
+education_level$Var1 <- factor(education_level$Var1, levels = rev(c("박사",  "석사", "대졸", "고졸" , "학력무관")))
+
+ggplot(education_level, aes(x = Var1, y = Freq)) + 
+  geom_bar(stat = "identity", aes(fill = Var1)) +
+  labs(x = NULL, y = NULL, fill = NULL, title = "education_level Line Chart")  +
+  theme_classic() +
+  theme(plot.title = element_text(hjust = 0.5, color = "#666666"))
+
 
 
 # salary box plot
@@ -157,6 +188,7 @@ ggplot(salary_re, aes(x =  , y = salary)) +
   theme_classic() +
   theme(plot.title = element_text(hjust = 0.5, color = "#666666"))  
   
+
 # chk platform proportion
 platform <- as.data.frame(table(sub_df$platform))
 colnames(platform) <- c("platform", "count")
@@ -425,5 +457,6 @@ topicmodels2LDAvis <- function(x, ...){
   )
 }
 
+options(encoding = 'utf-8')
 serVis(topicmodels2LDAvis(fit), open.browser=TRUE, encoding = "utf-8")
 #out.dir='2017-08-15-complaint-vis'
