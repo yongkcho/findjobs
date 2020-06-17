@@ -25,6 +25,12 @@ setwd(directory)
 # set dictionary
 useSejongDic()
 
+# define extract noun function
+exNouns = function(x) { 
+  paste(extractNoun(as.character(x)), collapse=" ")
+}
+
+
 
 #### merge dataset #####
 all_df <- NULL
@@ -128,6 +134,7 @@ freq_co <- company_count[company_count > 10] %>% as.data.frame()
 colnames(freq_co) <- c("company", "freq")
 freq_co <- freq_co[order(freq_co$freq, rev(freq_co$company), decreasing = TRUE), ]
 freq_co$company <- factor(freq_co$company, levels = rev(freq_co$company))
+freq_co <- freq_co[-2,]
 
 ggplot(freq_co, aes(x = company, y = freq)) + 
   geom_bar(stat = "identity", fill = "gray", colour="black") + 
@@ -138,13 +145,16 @@ ggplot(freq_co, aes(x = company, y = freq)) +
 
 #job_type
 table(sub_df$job_type)
-
 table(sub_df$education_level)
+
+
 
 # career_level plot
 career_level <- table(sub_df$career_level) %>% as.data.frame()
 career_level <- career_level[career_level$Var1 != "",]
-career_level$Var1 <- factor(career_level$Var1, levels = rev(c("8 ~ 10년",  "4 ~ 7년", "1 ~ 3년", "초대졸" , "고졸",  "학력무관")))
+career_level$Var1 <- as.character(career_level$Var1)
+career_level$Var1[6] <- "경력무관" 
+career_level$Var1 <- factor(career_level$Var1, levels = rev(c("8 ~ 10년",  "4 ~ 7년", "1 ~ 3년", "초대졸" , "고졸",  "경력무관")))
 
 ggplot(career_level, aes(x = Var1, y = Freq)) + 
   geom_bar(stat = "identity", aes(fill = Var1)) +
@@ -163,6 +173,34 @@ ggplot(education_level, aes(x = Var1, y = Freq)) +
   labs(x = NULL, y = NULL, fill = NULL, title = "education_level Line Chart")  +
   theme_classic() +
   theme(plot.title = element_text(hjust = 0.5, color = "#666666"))
+
+#### chk data with condition ####
+View(sub_df[sub_df$qualification == "경력무관 학력무관",])
+
+to_compare <- sub_df[sub_df$qualification == "경력무관 학력무관",]
+
+# hashtags  
+hash_nouns <- to_compare$hashtags[!is.na(to_compare$hashtags)]
+hash_nouns <- str_replace_all(hash_nouns, "#", " ")
+hash_nouns <- sapply(hash_nouns, exNouns)
+
+
+hash_corpus <- Corpus(VectorSource(hash_nouns))
+hash_corpus <- tm_map(hash_corpus, removePunctuation)
+hash_corpus <- tm_map(hash_corpus, removeNumbers)
+hash_corpus <- tm_map(hash_corpus, tolower)
+
+hash_tdm <- TermDocumentMatrix(hash_corpus, control=list(wordLengths=c(4,Inf)))
+hash_tdm <- as.data.frame(as.matrix(hash_tdm))
+
+# make wordcloud with top 50 hashtags
+hash_words <- sort(rowSums(hash_tdm), decreasing=TRUE)  
+hash_words <- data.frame(word = names(hash_words), freq = hash_words)
+rownames(hash_words) <- c()
+# to_remove <- c(1, 2, 3, 4, 5, 6, 7, 10, 11, 19, 25, 33, 55)
+hash_words <- hash_words[-to_remove,]
+wordcloud(hash_words$word[1:50], hash_words$freq[1:50], random.order = F, 
+          scale = c(2, 0.5), rot.per = 0)
 
 
 
@@ -184,10 +222,11 @@ salary_re <- rbind(data.frame(type = "min", salary = salary$min_salary),
 ggplot(salary_re, aes(x =  , y = salary)) + 
   geom_boxplot(fill="gray")+
   labs(title="Salary Box  & Jitter Plot",x = "연봉" , y = "만원")+
-  #geom_jitter(width = 0.3, alpha = 0.3, size = 1.5, aes(x = 1.15) ) +
+  geom_jitter(width = 0.3, alpha = 0.3, size = 1.5, aes(x = 1.15) ) +
   theme_classic() +
   theme(plot.title = element_text(hjust = 0.5, color = "#666666"))  
   
+summary(salary_re)
 
 # chk platform proportion
 platform <- as.data.frame(table(sub_df$platform))
@@ -211,14 +250,11 @@ ggplot(platform, aes(x = "", y = count, fill = platform)) +
 #### text analysis ####
 # make corpus
 
-# define extract noun function
-exNouns = function(x) { 
-  paste(extractNoun(as.character(x)), collapse=" ")
-}
 
 
 # hashtags  
 hash_nouns <- sub_df$hashtags[!is.na(sub_df$hashtags)]
+hash_nouns <- str_replace_all(hash_nouns, "#", " ")
 hash_nouns <- sapply(hash_nouns, exNouns)
 
 hash_corpus <- Corpus(VectorSource(hash_nouns))
@@ -233,8 +269,8 @@ hash_tdm <- as.data.frame(as.matrix(hash_tdm))
 hash_words <- sort(rowSums(hash_tdm), decreasing=TRUE)  
 hash_words <- data.frame(word = names(hash_words), freq = hash_words)
 rownames(hash_words) <- c()
-to_remove <- c(1, 2, 3, 4, 5, 6, 7, 10, 11, 19, 25, 33, 55)
-hash_words <- hash_words[-to_remove,]
+#to_remove <- c(1, 2, 3, 4, 5, 6, 7, 10, 11, 19, 25, 33, 55)
+#hash_words <- hash_words[-to_remove,]
 wordcloud(hash_words$word[1:50], hash_words$freq[1:50], random.order = F, 
           scale = c(2, 0.5), rot.per = 0)
 
@@ -303,9 +339,9 @@ tfIdf <- TermDocumentMatrix(myCorpus,
 tfIdf_df <- as.data.frame(as.matrix(tfIdf))
 tfIdfResult <- sort(rowSums(tfIdf_df), decreasing=TRUE)  
 
-tfIdf_df <- data.frame(word = names(tfIdfResult), tfIdf = tfIdfResult)
+tfIdf_count <- data.frame(word = names(tfIdfResult), tfIdf = tfIdfResult)
 
-findAssocs(tfIdf, "데이터", 0.1) #단어 상관관계 분석
+findAssocs(tfIdf, "python", 0.1) #단어 상관관계 분석
 
 # coocuerence network based on tf_idf
 tf_idf.mat = as.matrix(tfIdf_df) #매트릭스로 변환
@@ -329,27 +365,76 @@ mean_value
 threshold <- quantile(mean_list)
 threshold <- threshold[4]
 
-
 plot <- qgraph(co.matrix, labels=colnames(co.matrix),
                diag=FALSE, layout='spring',
                label.cex = 1, label.scale = F,
                threshold = mean_value,
                vsize=5)#log(diag(co.matrix))*5
 
+# chk co-occuerence word
+all_keyword <- NULL
+
+for(row in 1:nrow(co_ocuerence)){
+  temp_df <- data.frame(word = rownames(co_ocuerence), value = co_ocuerence[,row])
+  temp_df <- temp_df[order(temp_df$value, decreasing = TRUE),] %>% head(n = 31)
+  temp_df <- temp_df[-1,]
+  co_words <- NULL
+  
+  for(word in 1:nrow(temp_df)){
+    temp.co_words <- paste0(temp_df$word[word], "(", round(temp_df$value[word], digits = 2), ")")
+    co_words <- paste(co_words, temp.co_words, sep = ", ")
+  }
+  co_words <- substr(co_words, 3, nchar(co_words))
+  
+  temp_keyword <- data.frame(word = rownames(co_ocuerence)[row], related = co_words)
+  all_keyword <- rbind(all_keyword, temp_keyword)
+}
+
 # centrality
 centrality <- centrality(plot, weighted = FALSE)
+
 
 # convert to igraph to calculate eigen vector 
 plot_igraph <- as.igraph(plot)
 eigen <-eigen_centrality(plot_igraph)
 bonacich <- power_centrality(plot_igraph)
 
-centrality <- data.frame(no =  names(pbs), 
-                         betweeness = round(centrality$betweeness, digits = 2),
-                         outdegree = round(centrality$outdegree, digits = 2),
-                         indegree = round(centrality$indegree, digits = 2),
+centrality <- data.frame(no =  names(centrality$OutDegree), 
+                         betweeness = round(centrality$Betweenness, digits = 2),
+                         outdegree = round(centrality$OutDegree, digits = 2),
+                         indegree = round(centrality$InDegree, digits = 2),
                          eigenvector = round(eigen$vector, digits = 2),
                          bonacich = round(bonacich, digits = 2))
+rownames(centrality) <- c()
+
+# plot with 
+centrality$no <- centrality$no %>% as.character()
+sub_centrality <- subset(centrality, select = c("no", "betweeness", "eigenvector"))
+sub_centrality <- sub_centrality[order(sub_centrality$betweeness, decreasing = TRUE),]
+rownames(sub_centrality) <- c()
+  
+range_a <- range(centrality$betweeness)
+range_b <- range(centrality$eigenvector)
+scale_factor <- diff(range_a)/diff(range_b)
+sub_centrality$eigenvector <- ((sub_centrality$eigenvector - range_b[1]) * scale_factor) + range_a[1]
+trans <-  ~ ((. - range_a[1]) / scale_factor) + range_b[1]
+sub_centrality <- sub_centrality[c(-6, -7, -11, -14, -16, -17, -19, -22, -26, -27, -32, -35, -38, -40, -42, -45),]
+sub_centrality <- sub_centrality[1:30,]
+sub_centrality$no[30] <- "플랫폼"
+
+sub_centrality$no <- factor(sub_centrality$no,
+                            levels = sub_centrality$no)
+
+ggplot(sub_centrality, aes(x = no)) +
+  geom_line(aes(y = betweeness, group = 1, colour = "betweeness")) +
+  geom_line(aes(y = eigenvector, group = 2, colour = "eigenvector")) +
+  scale_y_continuous(sec.axis = sec_axis(trans = trans, name = "eigenvector")) +
+  labs(title="Betweeness & Eigenvector Centrality")+
+  geom_vline(xintercept = seq(1:30), linetype = 'dotted') +
+  theme_classic() +
+  theme(axis.text.x = element_text(angle = 45, vjust = 0.5, hjust=1)) +
+  theme(plot.title = element_text(hjust = 0.5, color = "#666666"))
+
 
 # plot aigain with bonacich centrality
 plot <- qgraph(co.matrix, labels=colnames(co.matrix),
@@ -358,7 +443,29 @@ plot <- qgraph(co.matrix, labels=colnames(co.matrix),
                threshold = threshold,
                vsize= centrality$bonacich * -5)#log(diag(co.matrix))*5
 
-####3. LDA text classifier####
+
+#### 3. tf-idf clustering using cosine similiarity####
+tdm.mat = as.matrix(tdm) #매트릭스로 변환
+csim <- tdm.mat / sqrt(rowSums(tdm.mat * tdm.mat)) #코사인 유사도
+csim <- csim %*% t(csim)
+cdist <- as.dist(1 - csim)
+hc <- hclust(cdist, "ward.D")
+clustering <- cutree(hc, 7)
+clustering <- data.frame(word = names(clustering), cluster = clustering)
+all_cluster <- NULL
+for(j in 1:7){
+  temp = clustering[clustering$cluster == j,]
+  temp_df <- data.frame(cluster = j,
+                        words = paste(temp$word, collapse = ", "))
+  all_cluster <- rbind(all_cluster, temp_df)
+}
+View(all_cluster)
+
+
+
+####4. LDA text classifier####
+
+
 dtm <- DocumentTermMatrix(myCorpus, control=list(wordLengths=c(4,Inf),
                                                 weighting = weightTf))
 row_total <- apply(dtm, 1, sum)
